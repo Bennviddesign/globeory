@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "Globeory",
+    "slug": "globeory",
+    "scheme": "globeory",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "app.globeory.mobile"
+    },
+    "android": {
+      "package": "app.globeory.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#0B1220",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0B1220",
+          "image": "./assets/icon.png",
+          "imageWidth": 160
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Globeory lets you pick an existing photo as the representative image for a destination visit.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
+      "expo-font"
+    ]
+  }
+}
