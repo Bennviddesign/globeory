@@ -32,6 +32,8 @@ interface GlobeViewProps {
   interactive?: boolean;
   /** When false the globe can still be rotated but markers ignore taps (preview mode). */
   markersPressable?: boolean;
+  /** Pure display (feed cards): no gestures, taps, zoom or controls. Overrides the two props above. */
+  readOnly?: boolean;
 }
 
 const noopPress = () => {};
@@ -49,9 +51,12 @@ export function GlobeView({
   selectedIds,
   onSelect,
   showControls = true,
-  interactive = true,
-  markersPressable = true,
+  interactive: interactiveProp = true,
+  markersPressable: markersPressableProp = true,
+  readOnly = false,
 }: GlobeViewProps) {
+  const interactive = interactiveProp && !readOnly;
+  const markersPressable = markersPressableProp && !readOnly;
   const colors = useColors();
   const [rotation, setRotation] = useState<Rotation>(() => rotationFor(center[0], center[1]));
   const [zoom, setZoom] = useState(1);
@@ -87,7 +92,7 @@ export function GlobeView({
 
   const panHandlers = useTransformGestures({
     onDrag: (dx, dy) => scheduleRotation(rotateByDrag(pendingRotation.current, dx, dy, zoomRef.current)),
-    captureTouches: !markersPressable,
+    captureTouches: !markersPressable && interactive,
     onPinch: (factor) => {
       if (markersPressable) setZoom((z) => clampZoom(z * factor)); // preview globes: rotate only
     },

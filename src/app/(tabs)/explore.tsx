@@ -1,51 +1,46 @@
 import { useRouter } from 'expo-router';
-import { useMemo } from 'react';
-import { StyleSheet, View, useWindowDimensions } from 'react-native';
-import { StatsRow } from '@/components/cards/StatCard';
-import { TripCard } from '@/components/cards/TripCard';
+import { useCallback, useMemo } from 'react';
+import { FlatList, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText } from '@/components/common/AppText';
 import { Avatar } from '@/components/common/Avatar';
-import { Card } from '@/components/common/Card';
 import { IconButton } from '@/components/common/IconButton';
-import { Screen } from '@/components/common/Screen';
-import { SectionHeader } from '@/components/common/SectionHeader';
 import { EmptyState } from '@/components/common/StateViews';
-import { GlobeSection } from '@/components/globe/GlobeSection';
+import { FeedCard } from '@/components/feed/FeedCard';
+import { FeedFilters } from '@/components/feed/FeedFilters';
 import { PAGE_PADDING, spacing } from '@/constants/layout';
 import { useData } from '@/context/DataContext';
 import { useSettings } from '@/context/SettingsContext';
-import { useScopedDb, useStats } from '@/context/useTravelData';
+import { useColors } from '@/context/ThemeContext';
+import { useFeed } from '@/context/useFeed';
+import type { FeedCard as FeedCardData } from '@/services/feed/feedTypes';
 import { unreadCount } from '@/services/social/notificationService';
-import { buildGlobalTimeline } from '@/services/timeline/globalTimeline';
 
-/** Home / Explore (spec section 7): greeting, stats, globe preview, recent trips. */
+const keyExtractor = (card: FeedCardData) => card.key;
+
+/** Explore: a calm feed of travelers (mini globe + stats), filterable by city / country / airport. */
 export default function ExploreScreen() {
   const router = useRouter();
+  const colors = useColors();
   const { width } = useWindowDimensions();
   const { db, currentUser, currentUserId } = useData();
   const { notifications } = useSettings();
-  const scoped = useScopedDb(currentUserId);
-  const stats = useStats(currentUserId);
+  const { cards, filter, setScope, setSort } = useFeed();
 
   const unread = useMemo(
     () => (currentUserId ? unreadCount(db, currentUserId, notifications) : 0),
     [db, currentUserId, notifications],
   );
-  const recentTrips = useMemo(
-    () =>
-      currentUserId
-        ? buildGlobalTimeline(scoped, currentUserId)
-            .flatMap((y) => y.items)
-            .slice(0, 3)
-        : [],
-    [scoped, currentUserId],
+  // Card padding is spacing.lg on each side (see Card).
+  const globeSize = Math.min(width - PAGE_PADDING * 2 - spacing.lg * 2, 340);
+
+  const renderItem = useCallback(
+    ({ item }: { item: FeedCardData }) => <FeedCard card={item} globeSize={globeSize} />,
+    [globeSize],
   );
 
-  const isEmpty = stats.visits === 0 && stats.trips === 0 && stats.flights === 0;
-  const globeWidth = Math.min(width - PAGE_PADDING * 2, 420);
-
-  return (
-    <Screen bottomInset={48}>
+  const header = (
+    <View>
       <View style={styles.header}>
         <Avatar name={currentUser?.display_name ?? '?'} uri={currentUser?.avatar_url} size={44} />
         <View style={{ flex: 1 }}>
@@ -65,61 +60,39 @@ export default function ExploreScreen() {
           filled
         />
       </View>
+      <FeedFilters filter={filter} onScopeChange={setScope} onSortChange={setSort} />
+    </View>
+  );
 
-      {isEmpty ? (
-        <EmptyState
-          title="Your world is waiting"
-          message="Add your first trip and watch your globe come alive."
-          actionLabel="Add first trip"
-          onAction={() => router.push('/form/trip')}
-        />
-      ) : (
-        <View style={styles.content}>
-          <StatsRow
-            countries={stats.countries}
-            cities={stats.cities}
-            flights={stats.flights}
-            hotels={stats.hotels}
-            onPressItem={(key) =>
-              router.push({ pathname: '/places', params: { tab: key === 'flights' ? 'airports' : key } })
-            }
+  return (
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.background }}>
+      <FlatList
+        data={cards}
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
+        ListHeaderComponent={header}
+        ListEmptyComponent={
+          <EmptyState
+            title="Nothing to explore yet"
+            message="Travelers who share their world will show up here."
+            icon="earth-outline"
           />
-
-          <Card padded={false} style={styles.globeCard}>
-            <SectionHeader title="My World" actionLabel="Open" onAction={() => router.push('/globe')} />
-            <GlobeSection
-              ownerId={currentUserId ?? ''}
-              width={globeWidth - spacing.lg}
-              showFilters={false}
-              showToggle={false}
-              interactive={false}
-            />
-          </Card>
-
-          <View>
-            <SectionHeader title="Recent trips" actionLabel="See all" onAction={() => router.push('/trips')} />
-            <View style={{ gap: spacing.sm }}>
-              {recentTrips.map((item) =>
-                item.kind === 'trip' ? (
-                  <TripCard
-                    key={item.key}
-                    trip={item.trip}
-                    coverImage={item.coverImage}
-                    countries={item.countries}
-                    onPress={() => router.push(`/trip/${item.trip.id}`)}
-                  />
-                ) : null,
-              )}
-            </View>
-          </View>
-        </View>
-      )}
-    </Screen>
+        }
+        ItemSeparatorComponent={Separator}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        initialNumToRender={3}
+        maxToRenderPerBatch={3}
+        windowSize={5}
+        removeClippedSubviews
+      />
+    </SafeAreaView>
   );
 }
 
+const Separator = () => <View style={{ height: spacing.md }} />;
+
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md },
-  content: { gap: spacing.xl },
-  globeCard: { padding: spacing.md, alignItems: 'center' },
+  content: { paddingHorizontal: PAGE_PADDING, paddingBottom: 48 },
 });
